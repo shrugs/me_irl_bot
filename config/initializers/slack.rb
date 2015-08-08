@@ -20,8 +20,8 @@ realtime.on :message do |data|
 
     new_post_urls = Rails.cache.fetch('hot', expires_in: 20.minutes) do
       j = JSON.parse(HTTParty.get(HOT_URL).body)
-      j['data']['children'].collect { |e|
-        e['type'] == 't3_'
+      j['data']['children'].select { |e|
+        e['kind'] == 't3'
       }.map { |e|
         e['data']['url']
       }
