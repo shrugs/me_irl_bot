@@ -16,7 +16,7 @@ end
 
 realtime.on :message do |data|
   case data['text']
-  when /[^|\s]?me[ |_]irl[$|\s]?/
+  when /[^|\s]?me[ |_]irl[$|\s]?/i
 
     new_post_urls = Rails.cache.fetch('hot', expires_in: 20.minutes) do
       j = JSON.parse(HTTParty.get(HOT_URL).body)
