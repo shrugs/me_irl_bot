@@ -25,7 +25,7 @@ def is_optimal_media(url)
   is_direct_link(url) && !excluded_media_types(url)
 end
 
-HOT_URL = 'https://www.reddit.com/r/me_irl.json?count=100'
+HOT_URL = 'https://www.reddit.com/r/meirl.json?count=100'
 
 cache = Cache.new(nil, nil, 100, 60 * 20)
 
