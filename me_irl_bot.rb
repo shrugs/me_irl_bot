@@ -3,6 +3,8 @@ require 'json'
 require 'cache'
 require 'httparty'
 
+require './iterator'
+
 require 'dotenv'
 Dotenv.load
 
@@ -27,7 +29,7 @@ end
 
 HOT_URL = 'https://www.reddit.com/r/meirl.json?count=100'
 
-cache = Cache.new(nil, nil, 100, 60 * 20)
+cache = Cache.new(nil, nil, 100, 60 * 10)  # 10 minutes
 
 # imgur_client = Imgurapi::Session.new(
 #   client_id: ENV['IMGUR_CLIENT_ID'],
@@ -51,18 +53,19 @@ client.on :message do |data|
 
     client.typing channel: data['channel']
 
-    new_post_urls = cache.fetch 'hot' do
+    new_post_iterator = cache.fetch 'hot' do
       j = JSON.parse(HTTParty.get(HOT_URL).body)
-      j['data']['children'].select { |e|
+      new_post_urls = j['data']['children'].select { |e|
         e['kind'] == 't3' && is_optimal_media(e['data']['url'])
       }.map { |e|
         e['data']['url']
       }
+      Iterator.new new_post_urls.shuffle
     end
 
     client.message(
       channel: data['channel'],
-      text: new_post_urls.sample,
+      text: new_post_iterator.next,
       as_user: true,
       unfurl_media: true,
     )
