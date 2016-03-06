@@ -1,5 +1,6 @@
 source 'http://rubygems.org'
 
+gem 'rack'
 gem 'slack-ruby-client'
 gem 'eventmachine'
 gem 'faye-websocket'

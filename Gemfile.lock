@@ -17,6 +17,7 @@ GEM
     json (1.8.3)
     multi_xml (0.5.5)
     multipart-post (2.0.0)
+    rack (1.6.4)
     ruby-cache (0.3.0)
     slack-ruby-client (0.5.4)
       faraday
@@ -36,6 +37,7 @@ DEPENDENCIES
   eventmachine
   faye-websocket
   httparty
+  rack
   ruby-cache
   slack-ruby-client
 
