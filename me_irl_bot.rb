@@ -2,11 +2,17 @@ require 'slack-ruby-client'
 require 'json'
 require 'cache'
 require 'httparty'
+require 'andand'
+require 'pry'
 
 require './iterator'
 
 require 'dotenv'
 Dotenv.load
+
+EXCLUDED_MEDIA_TYPES = ['.gifv']
+HOT_URL = 'https://www.reddit.com/r/me_irl+meirl.json?count=100'
+CACHE_KEY = 'hot'
 
 def is_direct_link(url)
   # could potentially check for specific extensions
@@ -14,8 +20,6 @@ def is_direct_link(url)
   # this is _probably_ fine
   url.split(//).last(5).include?('.')
 end
-
-EXCLUDED_MEDIA_TYPES = ['.gifv']
 
 def excluded_media_types(url)
   EXCLUDED_MEDIA_TYPES.any? { |t|
@@ -27,7 +31,22 @@ def is_optimal_media(url)
   is_direct_link(url) && !excluded_media_types(url)
 end
 
-HOT_URL = 'https://www.reddit.com/r/me_irl.json?count=100'
+def get_new_posts_iterator
+  j = JSON.parse(HTTParty.get(HOT_URL, headers: {
+    'User-Agent' => 'me_irl_bot by /u/shrugs'
+  }).body)
+
+  return Iterator.new if j['error']
+
+  all_new_posts = j.andand['data'].andand['children']
+
+  new_post_urls = all_new_posts.select { |e|
+    e['kind'] == 't3' && is_optimal_media(e['data']['url'])
+  }.map { |e|
+    e['data']['url']
+  }
+  return Iterator.new new_post_urls.shuffle
+end
 
 cache = Cache.new(nil, nil, 100, 60 * 10)  # 10 minutes
 
@@ -38,7 +57,7 @@ cache = Cache.new(nil, nil, 100, 60 * 10)  # 10 minutes
 # )
 
 Slack.configure do |config|
-  config.token = ENV['SLACK_API_TOKEN']
+  config.token = ENV.fetch('SLACK_API_TOKEN')
 end
 
 client = Slack::RealTime::Client.new
@@ -53,22 +72,22 @@ client.on :message do |data|
 
     client.typing channel: data['channel']
 
-    new_post_iterator = cache.fetch 'hot' do
-      j = JSON.parse(HTTParty.get(HOT_URL).body)
-      new_post_urls = j['data']['children'].select { |e|
-        e['kind'] == 't3' && is_optimal_media(e['data']['url'])
-      }.map { |e|
-        e['data']['url']
-      }
-      Iterator.new new_post_urls.shuffle
+    new_post_iterator = cache.fetch CACHE_KEY do
+      get_new_posts_iterator
     end
 
-    client.message(
-      channel: data['channel'],
-      text: new_post_iterator.next,
-      as_user: true,
-      unfurl_media: true,
-    )
+    next_link = new_post_iterator.next
+
+    if next_link
+      client.message(
+        channel: data['channel'],
+        text: next_link,
+        as_user: true,
+        unfurl_media: true,
+      )
+    else
+      cache.invalidate CACHE_KEY
+    end
 
   end
 
