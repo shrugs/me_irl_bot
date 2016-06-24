@@ -64,25 +64,32 @@ Slack.configure do |config|
   config.token = ENV.fetch('SLACK_API_TOKEN')
 end
 
-realtime_client = Slack::RealTime::Client.new
-web_client = Slack::Web::Client.new
+client = Slack::RealTime::Client.new
 
-realtime_client.on :hello do
-  bot_id = realtime_client.self['id']
-  delete_message_regex = /^<@#{bot_id}>: delete\s?/i
+client.on :hello do
+  bot_id = client.self['id']
+  delete_message_regex = /^@#{bot_id}:? delete$/i
+
+  client.web_client.chat_postMessage({
+    channel: ENV['BOT_ADMIN'],
+    text: "Oh hey, I've been connected. My ID is #{bot_id}",
+    as_user: true
+  }) if ENV.has_key?('BOT_ADMIN')
 end
 
-realtime_client.on :message do |data|
+client.on :message do |data|
 
   # if the message is from this bot, store it as the last message
   if data['user'] == bot_id
     last_messages[data['channel']] = data
   end
 
-  case data['text']
+  return if data['type'] != 'message'
+
+  case Slack::Messages::Formatting.unescape(data['text'])
   when /[^|\s]?me[ |_]irl[$|\s]?/i
 
-    realtime_client.typing channel: data['channel']
+    client.typing channel: data['channel']
 
     new_post_iterator = cache.fetch CACHE_KEY do
       get_new_posts_iterator
@@ -91,7 +98,7 @@ realtime_client.on :message do |data|
     next_link = new_post_iterator.next
 
     if next_link
-      realtime_client.message(
+      client.message(
         channel: data['channel'],
         text: next_link,
         as_user: true,
@@ -106,7 +113,7 @@ realtime_client.on :message do |data|
     meta = last_messages[this_channel]
     if meta
       # delete the last message
-      web_client.chat_delete({
+      client.web_client.chat_delete({
         ts: meta['ts'],
         channel: this_channel
       })
@@ -116,7 +123,15 @@ realtime_client.on :message do |data|
 
 end
 
-realtime_client.start!
+client.on :closed do |_data|
+  client.web_client.chat_postMessage({
+    channel: ENV['BOT_ADMIN'],
+    text: "Oh hey, I've been disconnected. Fix that or something. Or don't. Whatever.",
+    as_user: true
+  }) if ENV.has_key?('BOT_ADMIN')
+end
+
+client.start!
 
 # class ImgurUnfurler
 
