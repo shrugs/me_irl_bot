@@ -11,7 +11,7 @@ require 'dotenv'
 Dotenv.load
 
 EXCLUDED_MEDIA_TYPES = ['.gifv']
-HOT_URL = 'https://www.reddit.com/r/me_irl+meirl.json?count=100'
+HOT_URL = 'https://www.reddit.com/r/me_irl+meirl.json?count=200'
 CACHE_KEY = 'hot'
 
 bot_id = nil
@@ -79,14 +79,18 @@ end
 
 client.on :message do |data|
 
-  # if the message is from this bot, store it as the last message
-  if data['user'] == bot_id
-    last_messages[data['channel']] = data
-  end
+  # puts JSON.pretty_generate(data)
+  # puts "slack chat delete --channel=#{data['channel']} --ts=#{data['ts']}"
+  # puts
 
-  return if data['type'] != 'message'
+  is_normal_message = data['type'] == 'message' && !data.has_key?('subtype')
 
-  case Slack::Messages::Formatting.unescape(data['text'] || '')
+  # we only care about raw messages, not updates or anything
+  next if !is_normal_message || !data.has_key?('text')
+
+  text = Slack::Messages::Formatting.unescape(data['text'])
+
+  case text
   when /[^|\s]?me[ |_]irl[$|\s]?/i
 
     client.typing channel: data['channel']
@@ -98,12 +102,13 @@ client.on :message do |data|
     next_link = new_post_iterator.next
 
     if next_link
-      client.message(
+      meta = client.web_client.chat_postMessage({
         channel: data['channel'],
         text: next_link,
         as_user: true,
-        unfurl_media: true,
-      )
+        unfurl_media: true
+      })
+      last_messages[data['channel']] = meta
     else
       cache.invalidate CACHE_KEY
     end
@@ -111,6 +116,7 @@ client.on :message do |data|
   when delete_message_regex
     this_channel = data['channel']
     meta = last_messages[this_channel]
+
     if meta
       # delete the last message
       client.web_client.chat_delete({
