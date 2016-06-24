@@ -86,7 +86,7 @@ client.on :message do |data|
 
   return if data['type'] != 'message'
 
-  case Slack::Messages::Formatting.unescape(data['text'])
+  case Slack::Messages::Formatting.unescape(data['text'] || '')
   when /[^|\s]?me[ |_]irl[$|\s]?/i
 
     client.typing channel: data['channel']
