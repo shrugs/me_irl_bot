@@ -14,6 +14,10 @@ EXCLUDED_MEDIA_TYPES = ['.gifv']
 HOT_URL = 'https://www.reddit.com/r/me_irl+meirl.json?count=100'
 CACHE_KEY = 'hot'
 
+bot_id = nil
+last_messages = {}
+delete_message_regex = /^delete$/i
+
 def is_direct_link(url)
   # could potentially check for specific extensions
   # but then we're playing a losing battle with whitelisting
@@ -60,17 +64,25 @@ Slack.configure do |config|
   config.token = ENV.fetch('SLACK_API_TOKEN')
 end
 
-client = Slack::RealTime::Client.new
+realtime_client = Slack::RealTime::Client.new
+web_client = Slack::Web::Client.new
 
-client.on :hello do
-  puts 'Successfully connected.'
+realtime_client.on :hello do
+  bot_id = realtime_client.self['id']
+  delete_message_regex = /^<@#{bot_id}>: delete\s?/i
 end
 
-client.on :message do |data|
+realtime_client.on :message do |data|
+
+  # if the message is from this bot, store it as the last message
+  if data['user'] == bot_id
+    last_messages[data['channel']] = data
+  end
+
   case data['text']
   when /[^|\s]?me[ |_]irl[$|\s]?/i
 
-    client.typing channel: data['channel']
+    realtime_client.typing channel: data['channel']
 
     new_post_iterator = cache.fetch CACHE_KEY do
       get_new_posts_iterator
@@ -79,7 +91,7 @@ client.on :message do |data|
     next_link = new_post_iterator.next
 
     if next_link
-      client.message(
+      realtime_client.message(
         channel: data['channel'],
         text: next_link,
         as_user: true,
@@ -89,11 +101,22 @@ client.on :message do |data|
       cache.invalidate CACHE_KEY
     end
 
+  when delete_message_regex
+    this_channel = data['channel']
+    meta = last_messages[this_channel]
+    if meta
+      # delete the last message
+      web_client.chat_delete({
+        ts: meta['ts'],
+        channel: this_channel
+      })
+      last_messages[this_channel] = nil
+    end
   end
 
 end
 
-client.start!
+realtime_client.start!
 
 # class ImgurUnfurler
 
