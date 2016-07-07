@@ -167,3 +167,12 @@ client.start!
 #   end
 
 # end
+
+at_exit do
+  client = Slack::Web::Client.new
+  client.chat_postMessage({
+    channel: ENV['BOT_ADMIN'],
+    text: "OH NOES, I've been disconnected! Halp!",
+    as_user: true
+  }) if ENV.has_key?('BOT_ADMIN')
+end
