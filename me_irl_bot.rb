@@ -11,7 +11,7 @@ require 'dotenv'
 Dotenv.load
 
 EXCLUDED_MEDIA_TYPES = ['.gifv']
-HOT_URL = 'https://www.reddit.com/r/me_irl+meirl.json?count=200'
+HOT_URL = 'https://www.reddit.com/r/me_irl+meirl+wholesomememes.json?count=500'
 CACHE_KEY = 'hot'
 
 bot_id = nil
