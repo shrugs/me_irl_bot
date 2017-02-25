@@ -16,6 +16,7 @@ CACHE_KEY = 'hot'
 
 bot_id = nil
 last_messages = {}
+me_irl_regex = /[^|\s]?me[ |_]*irl[$|\s]?/i
 delete_message_regex = /^delete$/i
 
 def is_direct_link(url)
@@ -91,7 +92,7 @@ client.on :message do |data|
   text = Slack::Messages::Formatting.unescape(data['text'])
 
   case text
-  when /[^|\s]?me[ |_]irl[$|\s]?/i
+  when me_irl_regex
 
     client.typing channel: data['channel']
 
