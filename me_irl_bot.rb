@@ -10,14 +10,24 @@ require './iterator'
 require 'dotenv'
 Dotenv.load
 
+USER_AGENT = ENV.fetch('BOT_USER_AGENT', 'me_irl_bot by /u/shrugs')
+
 EXCLUDED_MEDIA_TYPES = ['.gifv']
-HOT_URL = 'https://www.reddit.com/r/me_irl+meirl+wholesomememes.json?count=500'
+MEME_SUBREDDITS = [
+  'me_irl',
+  'meirl',
+  'wholesomememes'
+]
 CACHE_KEY = 'hot'
 
 bot_id = nil
 last_messages = {}
 me_irl_regex = /[^|\s]?me[ |_]*irl[$|\s]?/i
 delete_message_regex = /^delete$/i
+
+def hot_url(subreddit)
+  "https://www.reddit.com/r/#{subreddit}.json?count=500"
+end
 
 def is_direct_link(url)
   # could potentially check for specific extensions
@@ -37,19 +47,23 @@ def is_optimal_media(url)
 end
 
 def get_new_posts_iterator
-  j = JSON.parse(HTTParty.get(HOT_URL, headers: {
-    'User-Agent' => 'me_irl_bot by /u/shrugs'
-  }).body)
+  new_post_urls = MEME_SUBREDDITS
+    .map { |sub| hot_url(sub) }
+    .map { |url|
+      j = JSON.parse(HTTParty.get(url, headers: {
+        'User-Agent' => USER_AGENT
+      }).body)
 
-  return Iterator.new if j['error']
+      return [] if j['error']
 
-  all_new_posts = j.andand['data'].andand['children']
+      new_post_urls = j.andand['data'].andand['children'].select { |e|
+        e['kind'] == 't3' && is_optimal_media(e['data']['url'])
+      }.map { |e|
+        e['data']['url']
+      }
+    }
+    .flatten
 
-  new_post_urls = all_new_posts.select { |e|
-    e['kind'] == 't3' && is_optimal_media(e['data']['url'])
-  }.map { |e|
-    e['data']['url']
-  }
   return Iterator.new new_post_urls.shuffle
 end
 
@@ -79,10 +93,6 @@ client.on :hello do
 end
 
 client.on :message do |data|
-
-  # puts JSON.pretty_generate(data)
-  # puts "slack chat delete --channel=#{data['channel']} --ts=#{data['ts']}"
-  # puts
 
   is_normal_message = data['type'] == 'message' && !data.has_key?('subtype')
 
@@ -136,44 +146,9 @@ client.on :closed do |_data|
     text: "Oh hey, I've been disconnected. Fix that or something. Or don't. Whatever.",
     as_user: true
   }) if ENV.has_key?('BOT_ADMIN')
+
+  # kill self, ideally something will restart this container
+  exit 2
 end
 
 client.start!
-
-# class ImgurUnfurler
-
-#   def work_magic(url)
-#     # returns a valid url ideally pointing to a direct image
-#     return yield(url) if is_direct_link(url) or !can_be_unfurled(url)
-
-#     unfurl_url(url) { |u|
-#       yield u
-#     }
-
-#   end
-
-#   def is_direct_link(url)
-#     # could potentially check for specific extensions
-#     # but then we're playing a losing battle with whitelisting
-#     # this is _probably_ fine
-#     url.split(//).last(5).include?('.')
-#   end
-
-#   def can_be_unfurled(url)
-#     url.include?('/image/') || url.include?('/gallery/')
-#   end
-
-#   def unfurl_url(url)
-#     yield url
-#   end
-
-# end
-
-at_exit do
-  client = Slack::Web::Client.new
-  client.chat_postMessage({
-    channel: ENV['BOT_ADMIN'],
-    text: "OH NOES, I've been disconnected! Halp!",
-    as_user: true
-  }) if ENV.has_key?('BOT_ADMIN')
-end
