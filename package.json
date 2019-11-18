@@ -1,0 +1,21 @@
+{
+  "name": "me_irl_bot",
+  "version": "1.0.0",
+  "description": "sends dank memes to slack channels",
+  "main": "index.js",
+  "repository": "https://github.com/shrugs/me_irl_bot",
+  "author": "Matt Condon (shrugs)",
+  "license": "MIT",
+  "private": true,
+  "devDependencies": {
+    "@now/node": "^1.1.2",
+    "@types/node": "^12.12.8",
+    "@typescript-eslint/eslint-plugin": "^2.7.0",
+    "@typescript-eslint/parser": "^2.7.0",
+    "eslint": "^6.6.0",
+    "eslint-config-prettier": "^6.6.0",
+    "eslint-plugin-prettier": "^3.1.1",
+    "prettier": "^1.19.1",
+    "typescript": "^3.7.2"
+  }
+}
