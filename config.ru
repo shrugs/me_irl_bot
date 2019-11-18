@@ -1,1 +1,0 @@
-require_relative './me_irl_bot'

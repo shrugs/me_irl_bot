@@ -1,5 +1,5 @@
 # me_irl_bot
 
-me irl
+> it's a slack app that posts a very 'me irl' picture whenever someone says 'me irl'
 
-![me irl](example.png)
+![me irl](media/example.png)
