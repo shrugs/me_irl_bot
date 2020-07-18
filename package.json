@@ -22,6 +22,6 @@
   "dependencies": {
     "@slack/web-api": "^5.5.0",
     "isomorphic-fetch": "^2.2.1",
-    "lodash": "^4.17.15"
+    "lodash": "^4.17.19"
   }
 }
