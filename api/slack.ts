@@ -1,13 +1,15 @@
-import { NowRequest, NowResponse } from "@now/node";
-import fetch from "isomorphic-fetch";
+import { NowRequest, NowResponse } from "@vercel/node";
+import fetch from "isomorphic-unfetch";
 import shuffle from "lodash/shuffle";
 import { WebClient } from "@slack/web-api";
+import { verifyRequestSignature } from '@slack/events-api';
+import getRawBody from "raw-body";
 
 const kDeleteCommand = /.*delete.*/gi;
 const kMemeCommand = /.*me.*irl.*/gi;
 const kSubreddits = ["me_irl", "meirl", "wholesomememes"];
 
-const slack = new WebClient(process.env.SLACK_ACCESS_TOKEN);
+const slack = new WebClient(process.env.BOT_OAUTH_TOKEN);
 
 // we can assume that serverless will nuke this in-memory cache at least every 30s
 // but parallel execution might fuck us up yay thread safety
@@ -84,13 +86,25 @@ const deleteLastMessage = async () => {
 };
 
 const main = async (
-  req: NowRequest,
-  res: NowResponse
+  req: NowRequest
 ): Promise<void | object> => {
   console.log(`req.body: ${JSON.stringify(req.body)}`);
   // no body? get outta here.
   if (!req.body) {
     throw new Error("No request body provided.");
+  }
+
+  const body = await getRawBody(req);
+
+  const isValid = verifyRequestSignature({
+    signingSecret: process.env.SLACK_SIGNING_SECRET,
+    body: body.toString(),
+    requestSignature: req.headers['x-slack-signature'] as string,
+    requestTimestamp: parseInt(req.headers['x-slack-request-timestamp'] as string, 10),
+  })
+
+  if (!isValid) {
+    throw new Error("Invalid request from slack!")
   }
 
   // handle url verification challenges
@@ -142,11 +156,20 @@ export default async (req: NowRequest, res: NowResponse) => {
   res.status(200);
 
   try {
-    const body = await main(req, res);
+    const body = await main(req);
     if (body) {
       res.json(body);
+    } else {
+      res.status(200).end();
     }
   } catch (error) {
     console.error(error);
+    res.status(500).json({error: error.toString()})
   }
+};
+
+export const config = {
+  api: {
+    bodyParser: false,
+  },
 };
